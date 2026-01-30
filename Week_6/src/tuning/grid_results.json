@@ -1,0 +1,7 @@
+{
+  "best_params": {
+    "C": 0.01,
+    "penalty": "l2"
+  },
+  "best_roc_auc": 0.7783819628647215
+}

@@ -1,3 +1,0 @@
-paths:
-  raw_data: src/data/raw/raw_Data_day1.csv
-  processed_data: src/data/processed/cleaned_Data_day1.csv

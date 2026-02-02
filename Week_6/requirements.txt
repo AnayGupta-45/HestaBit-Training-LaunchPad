@@ -1,7 +1,9 @@
+fastapi
+uvicorn
 pandas
 numpy
-matplotlib
-seaborn
-scikit-learn
-jupyter
-notebook
+scikit-learn==1.8.0
+joblib
+scipy
+pydantic
+requests

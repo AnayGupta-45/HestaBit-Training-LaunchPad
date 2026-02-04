@@ -7,4 +7,5 @@ logs/
 certs/
 *.pem
 venv
+.venv
 .ipynb_checkpoints/

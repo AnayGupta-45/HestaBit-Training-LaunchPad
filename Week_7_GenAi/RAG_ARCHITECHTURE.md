@@ -34,39 +34,6 @@ Retriever (User Query → Relevant Chunks)
 
 ---
 
-## Folder Structure
-
-src/
-├── data/
-│ ├── raw/
-│ ├── chunks/
-│ ├── embeddings/  
-│
-├── pipelines/
-│ ├── ingest.py
-|
-├── embeddings/
-| ├── embedder.py
-│
-├── retriever/
-│ └── query_engine.py
-|
-├── vectorstore
-| ├── vectorstore.py
-│ └── faiss.index
-| └── metadata.json
-|
-├── utils/
-│ ├── text_cleaner.py
-│ └── logger.py
-│
-├── config/
-│ └── settings.py
-│
-└── logs/
-
----
-
 ## Pipeline Steps
 
 ### 1. Ingestion

@@ -4,12 +4,7 @@ import faiss
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from src.utils.logger import logger
-from src.config.settings import EMBEDDING_MODEL
-
-VECTORSTORE_DIR = Path("src/vectorstore/")
-CHUNKS_PATH = Path("src/data/chunks/chunks.jsonl")
-INDEX_PATH = VECTORSTORE_DIR / "faiss.index"
-META_PATH = VECTORSTORE_DIR / "metadata.json"
+from src.config.settings import EMBEDDING_MODEL, VECTORSTORE_DIR, CHUNKS_PATH
 
 def load_chunks():
     chunks = []
@@ -21,47 +16,44 @@ def load_chunks():
 def main():
     logger.info("STEP 4 STARTED: FAISS retrieval")
 
-    index = faiss.read_index(str(INDEX_PATH))
-    logger.info(f"FAISS index loaded with {index.ntotal} vectors")
+    index_path = Path(VECTORSTORE_DIR) / "index.faiss"
+    meta_path = Path(VECTORSTORE_DIR) / "metadata.json"
 
-    with open(META_PATH, "r", encoding="utf-8") as f:
+    if not index_path.exists():
+        logger.error("Index not found")
+        return
+
+    index = faiss.read_index(str(index_path))
+    
+    with open(meta_path, "r", encoding="utf-8") as f:
         metadata = json.load(f)
 
     chunks = load_chunks()
     model = SentenceTransformer(EMBEDDING_MODEL)
+    
     query = input("\nEnter your query: ").strip()
-
     if not query:
-        logger.error("Empty query provided. Exiting.")
         return
 
-    top_k = 5
+    query_vector = model.encode([query], normalize_embeddings=True)
+    
+    scores, indices = index.search(np.array(query_vector, dtype="float32"), k=5)
 
-    logger.info(f"User query: {query}")
-    query_vector = model.encode(
-        [query],
-        normalize_embeddings=True
-    )
-
-    scores, indices = index.search(
-        np.array(query_vector, dtype="float32"),
-        top_k
-    )
-
-    print("\nTop results:\n")
+    print(f"RESULTS FOR: '{query}'")
+    print("-" * 80)
 
     for rank, idx in enumerate(indices[0]):
-        score = scores[0][rank]
+        if idx == -1: continue 
+        
         meta = metadata[idx]
         chunk_text = chunks[idx]["text"]
+        score = scores[0][rank]
 
-        print(f"Rank {rank + 1}")
-        print(f"Score: {score:.4f}")
-        print(f"Source: {meta['source']} | Page: {meta.get('page')}")
-        print(f"Text:\n{chunk_text[:600]}")
-        print("-" * 80)
-
-    logger.info("STEP 4 COMPLETED")
+        print(f"RANK {rank + 1} | Score: {score:.4f}")
+        print(f"Source: {meta.get('source')} | Page: {meta.get('page')}")
+        print("-" * 40)
+        print(f"{chunk_text[:400]}...") 
+        print("\n" + "_" * 80 + "\n")
 
 if __name__ == "__main__":
     main()

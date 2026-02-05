@@ -1,75 +1,78 @@
 import json
 import uuid
 from pathlib import Path
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from tqdm import tqdm
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.utils.text_cleaner import clean_text
+from src.utils.pdf_processor import extract_text_and_tables
 from src.utils.logger import logger
 from src.config.settings import RAW_DATA_PATH, CHUNK_SIZE, CHUNK_OVERLAP, CHUNKS_PATH
 
-def load_documents():
-    logger.info("Loading PDF documents")
-
-    loader = DirectoryLoader(
-        path=RAW_DATA_PATH,
-        glob="**/*.pdf",
-        loader_cls=PyPDFLoader
-    )
-
-    docs = loader.load()
-    logger.info(f"PDF pages loaded: {len(docs)}")
-    return docs
-
-def chunk_documents(docs):
-    logger.info("Cleaning and chunking PDF text")
+def process_documents():
+    logger.info("Starting ingestion with Page-Level Metadata")
+    
+    pdf_files = list(Path(RAW_DATA_PATH).glob("*.pdf"))
+    
+    if not pdf_files:
+        logger.error(f"No PDF files found in {RAW_DATA_PATH}")
+        return []
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
-
+    
     all_chunks = []
 
-    for doc in docs:
-        cleaned_text = clean_text(doc.page_content)
+    for pdf_file in tqdm(pdf_files, desc="Processing PDFs", unit="file"):
+        try:
+            logger.info(f"Reading file: {pdf_file.name}") 
 
-        if not cleaned_text.strip():
-            continue
+            pages = extract_text_and_tables(str(pdf_file))
+            
+            for page_data in pages:
 
-        chunks = splitter.split_text(cleaned_text)
+                cleaned_text = clean_text(page_data["text"])
+                
+                if not cleaned_text:
+                    continue
 
-        for idx, chunk in enumerate(chunks):
-            all_chunks.append({
-                "chunk_id": str(uuid.uuid4()),
-                "text": chunk,
-                "metadata": {
-                    "source": doc.metadata.get("source"),
-                    "page": doc.metadata.get("page"),
-                    "chunk_index": idx
-                }
-            })
+                text_chunks = splitter.split_text(cleaned_text)
 
-    logger.info(f"Total chunks created: {len(all_chunks)}")
+                # Step 4: Tag every chunk
+                for idx, text in enumerate(text_chunks):
+                    chunk_data = {
+                        "chunk_id": str(uuid.uuid4()),
+                        "text": text,
+                        "metadata": {
+                            "source": pdf_file.name,
+                            "page": page_data["page"],
+                            "chunk_index": idx
+                        }
+                    }
+                    all_chunks.append(chunk_data)
+                
+        except Exception as e:
+            logger.error(f"Failed to process {pdf_file.name}: {e}")
+
+    logger.info(f"Processed {len(pdf_files)} files into {len(all_chunks)} chunks")
     return all_chunks
 
 def save_chunks(chunks):
-    Path(CHUNKS_PATH).parent.mkdir(parents=True, exist_ok=True)
+    if not chunks:
+        logger.warning("No chunks to save!")
+        return
 
+    Path(CHUNKS_PATH).parent.mkdir(parents=True, exist_ok=True)
     with open(CHUNKS_PATH, "w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-
-    logger.info(f"Chunks saved at {CHUNKS_PATH}")
+    logger.info(f"Saved to {CHUNKS_PATH}")
 
 def main():
-    logger.info("STEP 1 STARTED: PDF ingestion + chunking")
-
-    docs = load_documents()
-    chunks = chunk_documents(docs)
+    chunks = process_documents()
     save_chunks(chunks)
-
-    logger.info("STEP 1 COMPLETED SUCCESSFULLY")
 
 if __name__ == "__main__":
     main()

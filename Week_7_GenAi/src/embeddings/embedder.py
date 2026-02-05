@@ -1,61 +1,58 @@
 import json
 import numpy as np
 from pathlib import Path
+from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
-
 from src.utils.logger import logger
-from src.config.settings import (
-    EMBEDDING_MODEL,
-    CHUNKS_PATH,
-    EMBEDDINGS_DIR
-)
+from src.config.settings import EMBEDDING_MODEL, CHUNKS_PATH, EMBEDDINGS_DIR
 
 def main():
     logger.info("STEP 2 STARTED: Embedding generation")
-
+    
     embeddings_dir = Path(EMBEDDINGS_DIR)
     embeddings_dir.mkdir(parents=True, exist_ok=True)
+    
+    model = SentenceTransformer(EMBEDDING_MODEL)
+    
+    batch_size = 32
+    batch_texts = []
+    batch_metadatas = []
+    all_vectors = []
+    
+    metadata_file = open(embeddings_dir / "metadata.jsonl", "w", encoding="utf-8")
 
-    embeddings_file = embeddings_dir / "embeddings.npy"
-    metadata_file = embeddings_dir / "metadata.jsonl"
-
-    texts = []
-    metadatas = []
+    total_chunks = sum(1 for _ in open(CHUNKS_PATH, "r", encoding="utf-8"))
 
     with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
-        for line in f:
+        for line in tqdm(f, total=total_chunks, desc="Embedding", unit="chunk"):
             record = json.loads(line)
-            texts.append(record["text"])
-            metadatas.append({
-                "chunk_id": record["chunk_id"],
-                "source": record["metadata"]["source"],
-                "page": record["metadata"].get("page"),
-                "chunk_index": record["metadata"]["chunk_index"]
-            })
+            batch_texts.append(record["text"])
+            batch_metadatas.append(record["metadata"])
+            
+            if len(batch_texts) >= batch_size:
+                vectors = model.encode(batch_texts, normalize_embeddings=True)
+                all_vectors.append(vectors)
+                
+                for meta in batch_metadatas:
+                    metadata_file.write(json.dumps(meta, ensure_ascii=False) + "\n")
+                
+                batch_texts = []
+                batch_metadatas = []
 
-    logger.info(f"Chunks loaded for embedding: {len(texts)}")
+    if batch_texts:
+        vectors = model.encode(batch_texts, normalize_embeddings=True)
+        all_vectors.append(vectors)
+        for meta in batch_metadatas:
+            metadata_file.write(json.dumps(meta, ensure_ascii=False) + "\n")
 
-    model = SentenceTransformer(EMBEDDING_MODEL)
-    logger.info(f"Embedding model loaded: {EMBEDDING_MODEL}")
+    metadata_file.close()
 
-    vectors = model.encode(
-        texts,
-        batch_size=32,
-        show_progress_bar=True,
-        normalize_embeddings=True
-    )
-
-    logger.info(f"Embeddings generated with shape: {vectors.shape}")
-
-    np.save(embeddings_file, vectors)
-    logger.info(f"Embeddings saved at: {embeddings_file}")
-
-    with open(metadata_file, "w", encoding="utf-8") as f:
-        for meta in metadatas:
-            f.write(json.dumps(meta, ensure_ascii=False) + "\n")
-
-    logger.info(f"Metadata saved at: {metadata_file}")
-    logger.info("STEP 2 COMPLETED SUCCESSFULLY")
+    if all_vectors:
+        final_vectors = np.vstack(all_vectors)
+        np.save(embeddings_dir / "embeddings.npy", final_vectors)
+        logger.info(f"Saved {final_vectors.shape[0]} vectors to {EMBEDDINGS_DIR}")
+    else:
+        logger.error("No vectors generated")
 
 if __name__ == "__main__":
     main()

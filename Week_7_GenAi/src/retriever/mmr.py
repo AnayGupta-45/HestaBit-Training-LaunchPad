@@ -1,17 +1,12 @@
 import numpy as np
-from sentence_transformers import SentenceTransformer
+
 
 class MMR:
     def __init__(self, lambda_param=0.7):
         self.lambda_param = lambda_param
-        self.model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
-    def select(self, query, docs, top_k):
-        embeddings = self.model.encode(
-            [d["text"] for d in docs],
-            normalize_embeddings=True
-        )
-        q_emb = self.model.encode([query], normalize_embeddings=True)[0]
+    def select(self, query_emb, docs, top_k):
+        embeddings = np.array([d["embedding"] for d in docs])
 
         selected = []
         candidates = list(range(len(docs)))
@@ -19,7 +14,7 @@ class MMR:
         while candidates and len(selected) < top_k:
             scores = []
             for idx in candidates:
-                relevance = np.dot(q_emb, embeddings[idx])
+                relevance = np.dot(query_emb, embeddings[idx])
                 diversity = max(
                     [np.dot(embeddings[idx], embeddings[s]) for s in selected],
                     default=0

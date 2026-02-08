@@ -1,12 +1,16 @@
-CHUNK_SIZE = 750
-CHUNK_OVERLAP = 100
+from pathlib import Path
 
-RAW_DATA_PATH = "src/data/raw"
-CHUNKS_PATH = "src/data/chunks/chunks.jsonl"
+BASE_DIR = Path("src")
 
-EMBEDDINGS_DIR = "src/data/embeddings"
-VECTORSTORE_DIR = "src/vectorstore"
-EMBEDDINGS_FILE = "src/data/embeddings/embeddings.npy"
+DATA_DIR = BASE_DIR / "data"
+RAW_DATA_PATH = DATA_DIR / "raw"
+
+CHUNKS_PATH = DATA_DIR / "chunks" / "chunks.jsonl"
+
+EMBEDDINGS_DIR = DATA_DIR / "embeddings"
+VECTORSTORE_DIR = BASE_DIR / "vectorstore"
+
+EMBEDDINGS_FILE = EMBEDDINGS_DIR / "embeddings.npy"
 
 EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -15,9 +19,10 @@ TOP_K_VECTOR = 10
 TOP_K_KEYWORD = 10
 FINAL_TOP_K = 5
 
-IMAGE_DIR = "src/data/images"
-IMAGE_METADATA_PATH = "src/data/image_metadata.jsonl"
+IMAGE_DIR = DATA_DIR / "images"
 
-IMAGE_EMBEDDINGS_FILE = "src/data/embeddings/image_embeddings.npy"
-IMAGE_INDEX_FILE = "src/vectorstore/image_index.faiss"
-IMAGE_METADATA_STORE = "src/vectorstore/image_metadata.json"
+IMAGE_METADATA_PATH = DATA_DIR / "clip_metadata.jsonl"
+
+IMAGE_INDEX_FILE = VECTORSTORE_DIR / "image.faiss"
+TEXT_INDEX_FILE = VECTORSTORE_DIR / "text.faiss"
+

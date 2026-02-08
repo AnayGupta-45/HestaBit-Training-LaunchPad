@@ -1,109 +1,141 @@
 import json
 import faiss
 import torch
-import numpy as np
+import clip
 from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
-from src.config.settings import (
-    IMAGE_INDEX_FILE,
-    IMAGE_METADATA_STORE,
-    TOP_K_VECTOR
-)
-from src.utils.logger import logger
+from pathlib import Path
+from sentence_transformers import CrossEncoder, SentenceTransformer
+from transformers import BlipProcessor, BlipForConditionalGeneration
+
+IMAGE_INDEX = Path("src/vectorstore/image.faiss")
+TEXT_INDEX = Path("src/vectorstore/text.faiss")
+OCR_INDEX = Path("src/vectorstore/ocr.faiss")
+METADATA = Path("src/data/clip_metadata.jsonl")
+
 
 class ImageSearch:
 
     def __init__(self):
-        logger.info("Initializing Image Search System")
-
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.model, self.preprocess = clip.load("ViT-B/32", device=self.device)
 
-        self.model.to(self.device)
-        self.model.eval()
+        self.image_index = faiss.read_index(str(IMAGE_INDEX))
+        self.text_index = faiss.read_index(str(TEXT_INDEX))
+        self.ocr_index = faiss.read_index(str(OCR_INDEX))
 
-        self.index = faiss.read_index(IMAGE_INDEX_FILE)
+        self.records = []
+        with open(METADATA, "r", encoding="utf-8") as f:
+            for line in f:
+                self.records.append(json.loads(line))
 
-        with open(IMAGE_METADATA_STORE, "r", encoding="utf-8") as f:
-            self.metadata = json.load(f)
+        self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        self.text_model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
-    def search_by_text(self, query, top_k=TOP_K_VECTOR):
-        logger.info(f"Text → Image search: {query}")
+        self.caption_processor = BlipProcessor.from_pretrained(
+            "Salesforce/blip-image-captioning-base",
+            local_files_only=True
+        )
 
-        inputs = self.processor(text=[query], return_tensors="pt", padding=True).to(self.device)
+        self.caption_model = BlipForConditionalGeneration.from_pretrained(
+            "Salesforce/blip-image-captioning-base",
+            local_files_only=True
+        ).to(self.device)
 
-        with torch.no_grad():
-            text_features = self.model.get_text_features(**inputs)
+        self.caption_model.eval()
 
-        # Fix for BaseModelOutputWithPooling error
-        if hasattr(text_features, "pooler_output"):
-            text_features = text_features.pooler_output
-        elif not isinstance(text_features, torch.Tensor):
-            text_features = text_features[0]
+    def normalize(self, vec):
+        faiss.normalize_L2(vec)
+        return vec
 
-        text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
-        query_vector = text_features.cpu().numpy().astype("float32")
-
-        scores, indices = self.index.search(query_vector, top_k)
-        
-        results = [self.metadata[i] for i in indices[0] if i < len(self.metadata)]
-        return results
-
-    def search_by_image(self, image_path, top_k=TOP_K_VECTOR):
-        logger.info(f"Image → Image search: {image_path}")
-
-        image = Image.open(image_path).convert("RGB")
-        inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+    def caption_query_image(self, path):
+        image = Image.open(path).convert("RGB")
+        inputs = self.caption_processor(images=image, return_tensors="pt").to(self.device)
 
         with torch.no_grad():
-            image_features = self.model.get_image_features(**inputs)
+            out = self.caption_model.generate(**inputs)
 
-        # Fix for BaseModelOutputWithPooling error
-        if hasattr(image_features, "pooler_output"):
-            image_features = image_features.pooler_output
-        elif not isinstance(image_features, torch.Tensor):
-            image_features = image_features[0]
+        caption = self.caption_processor.decode(out[0], skip_special_tokens=True)
+        return caption
 
-        image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
-        query_vector = image_features.cpu().numpy().astype("float32")
+    def text_to_image(self, query, k=5):
+        tokens = clip.tokenize([query]).to(self.device)
 
-        scores, indices = self.index.search(query_vector, top_k)
-        
-        results = [self.metadata[i] for i in indices[0] if i < len(self.metadata)]
-        return results
+        with torch.no_grad():
+            emb = self.model.encode_text(tokens).cpu().numpy().astype("float32")
 
-    def image_to_text_context(self, image_path, top_k=TOP_K_VECTOR):
-        results = self.search_by_image(image_path, top_k)
+        emb = self.normalize(emb)
 
-        combined_text = ""
-        for item in results:
-            combined_text += f"\nCaption: {item.get('caption', '')}\n"
-            combined_text += f"OCR: {item.get('ocr_text', '')}\n"
+        scores, idx = self.image_index.search(emb, k)
 
-        return combined_text
+        return [self.records[i] for i in idx[0] if i != -1]
+
+    def image_to_image(self, path, k=5):
+        img = self.preprocess(Image.open(path).convert("RGB")).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            emb = self.model.encode_image(img).cpu().numpy().astype("float32")
+
+        emb = self.normalize(emb)
+
+        scores, idx = self.image_index.search(emb, k)
+
+        return [self.records[i] for i in idx[0] if i != -1]
+
+    def image_to_text(self, path, k=5):
+
+        query_caption = self.caption_query_image(path)
+
+        img = self.preprocess(Image.open(path).convert("RGB")).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            img_emb = self.model.encode_image(img).cpu().numpy().astype("float32")
+
+        img_emb = self.normalize(img_emb)
+
+        scores_img, idx_img = self.text_index.search(img_emb, 5)
+
+        ocr_query_emb = self.text_model.encode(
+            [query_caption], normalize_embeddings=True
+        ).astype("float32")
+
+        scores_ocr, idx_ocr = self.ocr_index.search(ocr_query_emb, 5)
+
+        combined_ids = list(set(idx_img[0]) | set(idx_ocr[0]))
+        candidates = [self.records[i] for i in combined_ids if i != -1]
+
+        pairs = []
+        for c in candidates:
+            text = (c["caption"] or "") + " " + (c["ocr_text"] or "")
+            pairs.append([query_caption, text])
+
+        rerank_scores = self.reranker.predict(pairs)
+
+        ranked = sorted(zip(candidates, rerank_scores), key=lambda x: x[1], reverse=True)
+
+        return [r[0]["retrieval_text"] for r in ranked[:k]]
+
 
 if __name__ == "__main__":
     search = ImageSearch()
 
     while True:
-        mode = input("Mode (1=text, 2=image, 3=image→text, q=quit): ")
+        mode = input("\n1 Text→Image | 2 Image→Image | 3 Image→Text | q Quit : ")
 
         if mode == "1":
-            query = input("Enter text query: ")
-            results = search.search_by_text(query)
-            print(json.dumps(results, indent=2))
+            q = input("Enter query: ")
+            res = search.text_to_image(q)
+            print(json.dumps(res, indent=2))
 
         elif mode == "2":
-            path = input("Enter image path: ")
-            results = search.search_by_image(path)
-            print(json.dumps(results, indent=2))
+            p = input("Enter image path: ")
+            res = search.image_to_image(p)
+            print(json.dumps(res, indent=2))
 
         elif mode == "3":
-            path = input("Enter image path: ")
-            context = search.image_to_text_context(path)
-            print(context)
+            p = input("Enter image path: ")
+            res = search.image_to_text(p)
+            print("\n".join(res))
 
         elif mode == "q":
             break

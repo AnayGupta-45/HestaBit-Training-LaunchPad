@@ -1,24 +1,37 @@
 import { Redis } from 'ioredis';
+import logger from '../utils/logger.js';
+import config from '../config/index.js';
 
 export const redisConnection = new Redis({
-  host: '127.0.0.1',
-  port: 6379,
+  host: config.REDIS_HOST || '127.0.0.1',
+  port: config.REDIS_PORT ? Number(config.REDIS_PORT) : 6379,
   maxRetriesPerRequest: null,
   retryStrategy(times) {
-    console.log(`Retrying Redis connection... attempt ${times}`);
-    return Math.min(times * 300, 2000);
+    const delay = Math.min(times * 300, 2000);
+
+    logger.warn({ attempt: times, delay }, 'Retrying Redis connection');
+
+    return delay;
   },
   enableReadyCheck: true,
 });
 
 redisConnection.on('connect', () => {
-  console.log('Redis connected');
+  logger.info('Redis TCP connection established');
 });
 
 redisConnection.on('ready', () => {
-  console.log('Redis ready');
+  logger.info('Redis connection ready');
+});
+
+redisConnection.on('reconnecting', (delay) => {
+  logger.warn({ delay }, 'Redis reconnecting');
+});
+
+redisConnection.on('end', () => {
+  logger.warn('Redis connection closed');
 });
 
 redisConnection.on('error', (err) => {
-  console.error('Redis error:', err.message);
+  logger.error({ err }, 'Redis connection error');
 });

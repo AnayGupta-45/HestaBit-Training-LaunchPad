@@ -12,9 +12,11 @@ const config = {
   port: process.env.PORT,
   dbUrl: process.env.DB_URL,
   logLevel: process.env.LOG_LEVEL || 'info',
+  redis_port: process.env.REDIS_PORT,
+  redis_host: process.env.REDIS_HOST,
 };
 
-if (!config.port || !config.dbUrl) {
+if (!config.port || !config.dbUrl || !config.redis_host || !config.redis_port) {
   throw new Error('Missing required Environment Variables');
 }
 

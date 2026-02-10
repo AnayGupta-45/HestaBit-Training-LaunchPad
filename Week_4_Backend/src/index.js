@@ -18,8 +18,6 @@ async function startServer() {
       logger.info('HTTP server closed');
 
       await disconnectDB();
-      logger.info('MongoDB disconnected');
-
       setTimeout(() => {
         logger.info('Process Exiting');
         process.exit(0);

@@ -15,7 +15,6 @@ export default async function appLoader() {
   logger.info('Bootstrapping application');
 
   const app = express();
-  `z`;
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(securityHeaders);
@@ -25,10 +24,8 @@ export default async function appLoader() {
   app.use(requestTracing);
   logger.info('Middlewares loaded');
   await connectDB();
-
-  const routeCount = mountRoutes(app);
-  logger.info(`Routes mounted: ${routeCount} modules`);
-
+  mountRoutes(app);
+  logger.info('Routes Mounted');
   app.use(errorMiddleware);
   return app;
 }

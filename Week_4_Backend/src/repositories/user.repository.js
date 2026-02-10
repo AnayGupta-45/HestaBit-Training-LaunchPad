@@ -5,6 +5,10 @@ class UserRepository {
     return User.create(data);
   }
 
+  findAll() {
+    return User.find();
+  }
+
   findByEmail(email) {
     return User.findOne({ email });
   }

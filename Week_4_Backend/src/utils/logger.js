@@ -8,17 +8,19 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
+const appStream = fs.createWriteStream(path.join(logDir, 'app.log'), {
+  flags: 'a',
+});
+
+const errorStream = fs.createWriteStream(path.join(logDir, 'error.log'), {
+  flags: 'a',
+});
+
 const streams = [
-  {
-    level: 'info',
-    stream: fs.createWriteStream(path.join(logDir, 'app.log'), { flags: 'a' }),
-  },
-  {
-    level: 'error',
-    stream: fs.createWriteStream(path.join(logDir, 'error.log'), {
-      flags: 'a',
-    }),
-  },
+  { level: 'info', stream: appStream },
+  { level: 'error', stream: errorStream },
+  { level: 'info', stream: process.stdout },
+  { level: 'error', stream: process.stderr },
 ];
 
 const logger = pino(

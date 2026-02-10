@@ -1,17 +1,30 @@
 import { Worker } from 'bullmq';
 import { redisConnection } from './redis.js';
+import logger from '../utils/logger.js';
 
-console.log('Starting Email Worker...');
+logger.info('Starting Email Worker');
 
 const worker = new Worker(
   'email-queue',
   async (job) => {
-    console.log('Processing Job:', job.name);
-    console.log('Job Data:', job.data);
+    logger.info(
+      {
+        jobId: job.id,
+        jobName: job.name,
+        data: job.data,
+      },
+      'Processing email job'
+    );
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    console.log(`Email sent to ${job.data.email}`);
+    logger.info(
+      {
+        jobId: job.id,
+        email: job.data.email,
+      },
+      'Email sent successfully'
+    );
   },
   {
     connection: redisConnection,
@@ -19,13 +32,33 @@ const worker = new Worker(
 );
 
 worker.on('completed', (job) => {
-  console.log(`Job ${job.id} completed`);
+  logger.info({ jobId: job.id }, 'Job completed');
 });
 
 worker.on('failed', (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err);
+  logger.error(
+    {
+      jobId: job?.id,
+      err,
+    },
+    'Job failed'
+  );
 });
 
 worker.on('error', (err) => {
-  console.error('Worker Error:', err);
+  logger.error({ err }, 'Worker error');
+});
+
+process.on('SIGINT', async () => {
+  logger.info('Shutting down worker...');
+  await worker.close();
+  logger.info('Worker closed');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info('Shutting down worker...');
+  await worker.close();
+  logger.info('Worker closed');
+  process.exit(0);
 });

@@ -8,9 +8,6 @@ module.exports = {
       env: {
         NODE_ENV: 'local',
       },
-      env_production: {
-        NODE_ENV: 'production',
-      },
     },
     {
       name: 'email-worker',

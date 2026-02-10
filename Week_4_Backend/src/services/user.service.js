@@ -37,6 +37,18 @@ class UserService {
 
     return user;
   }
+
+  async getUsers() {
+    return userRepo.findAll();
+  }
+
+  async getUserById(id) {
+    const user = await userRepo.findById(id);
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+    return user;
+  }
 }
 
 export default new UserService();

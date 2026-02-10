@@ -11,8 +11,6 @@ import { createProductSchema } from '../validators/product.schema.js';
 const router = express.Router();
 
 router.post('/', validate(createProductSchema), createProduct);
-
-// untouched routes
 router.get('/', getProducts);
 router.delete('/:id', deleteProduct);
 

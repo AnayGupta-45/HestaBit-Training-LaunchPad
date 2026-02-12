@@ -13,6 +13,8 @@ const sanitizeObject = (obj) => {
 };
 
 export const xssSanitize = (req, res, next) => {
-  sanitizeObject(req.body);
+  if (req.body) sanitizeObject(req.body);
+  if (req.query) sanitizeObject(req.query);
+  if (req.params) sanitizeObject(req.params);
   next();
 };

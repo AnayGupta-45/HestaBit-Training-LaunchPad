@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'week4-api',
       script: 'src/index.js',
-      exec_mode: 'fork',
-      instances: 1,
+      exec_mode: 'cluster', 
+      instances: 'max',     
       env: {
         NODE_ENV: 'local',
       },

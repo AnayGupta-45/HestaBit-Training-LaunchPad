@@ -1,46 +1,39 @@
 import Order from '../models/Order.js';
 
 class OrderRepository {
-  // CREATE
   create(data) {
     return Order.create(data);
   }
 
   findById(id) {
-    return Order.findById(id).populate('accountId');
+    return Order.findOne({ _id: id, deletedAt: null }).populate('accountId');
   }
 
-  // SKIP / LIMIT PAGINATION (basic)
-  findPaginated({ page = 1, limit = 10, status }) {
-    const query = status ? { status } : {};
+  //CURSOR PAGINATION
+  findByCursor({ limit = 10, status, cursor }) {
+    const query = { deletedAt: null };
+
+    if (status) query.status = status;
+
+    if (cursor) query.createdAt = { $lt: new Date(cursor) };
 
     return Order.find(query)
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .populate('accountId');
   }
 
-  // CURSOR-BASED PAGINATION
-  findByCursor({ limit = 10, status, cursor }) {
-    const query = {};
-
-    if (status) {
-      query.status = status;
-    }
-
-    if (cursor) {
-      query.createdAt = { $lt: cursor };
-    }
-
-    return Order.find(query).sort({ createdAt: -1 }).limit(limit);
+  countActive(filters = {}) {
+    const query = { deletedAt: null, ...filters };
+    return Order.countDocuments(query);
   }
 
-  update(id, data) {
-    return Order.findByIdAndUpdate(id, data, { new: true });
-  }
-
-  delete(id) {
-    return Order.findByIdAndDelete(id);
+  softDelete(id) {
+    return Order.findByIdAndUpdate(
+      id,
+      { deletedAt: new Date() },
+      { new: true }
+    );
   }
 }
 

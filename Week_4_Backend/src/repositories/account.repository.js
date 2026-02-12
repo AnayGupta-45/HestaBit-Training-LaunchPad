@@ -5,25 +5,25 @@ class AccountRepository {
     return Account.create(data);
   }
 
-  findById(id) {
-    return Account.findById(id);
+  findByEmail(email) {
+    return Account.findOne({ email });
   }
 
-  findPaginated({ page = 1, limit = 10, status }) {
-    const query = status ? { status } : {};
+  async findPaginatedWithCount({ status }, { limit = 10, cursor }) {
+    // CURSOR PAGINATION
+    const query = {};
+    if (status) query.status = status;
 
-    return Account.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-  }
+    if (cursor) {
+      query.createdAt = { $lt: new Date(cursor) };
+    }
 
-  update(id, data) {
-    return Account.findByIdAndUpdate(id, data, { new: true });
-  }
+    const [items, total] = await Promise.all([
+      Account.find(query).sort({ createdAt: -1 }).limit(limit),
+      Account.countDocuments(status ? { status } : {}),
+    ]);
 
-  delete(id) {
-    return Account.findByIdAndDelete(id);
+    return { items, total };
   }
 }
 

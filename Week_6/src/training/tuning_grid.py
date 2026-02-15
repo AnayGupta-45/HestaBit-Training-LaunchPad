@@ -1,8 +1,8 @@
 import pandas as pd
 import json
 import logging
+import joblib
 from pathlib import Path
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
@@ -60,6 +60,17 @@ def main():
         "best_params": grid.best_params_,
         "best_roc_auc": grid.best_score_
     }
+
+    joblib.dump(grid.best_estimator_, Path("src/models/best_model.pkl"))
+    best_model = LogisticRegression(
+    **grid.best_params_,
+    max_iter=1000,
+    class_weight="balanced",
+    solver="liblinear"
+)
+    best_model.fit(X, y)
+    joblib.dump(best_model, Path("src/models/best_model.pkl"))
+
     with open(TUNING_PATH / "grid_results.json", "w") as f:
         json.dump(results, f, indent=2)
     logger.info(f"Best ROC-AUC: {grid.best_score_:.4f}")

@@ -1,7 +1,6 @@
 import pandas as pd
 import logging
 from pathlib import Path
-from datetime import datetime
 import numpy as np
 
 RAW_DATA_PATH = Path("src/data/raw/raw.csv")

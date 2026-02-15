@@ -7,7 +7,6 @@ import {
   apiRateLimiter,
   securityHeaders,
   corsPolicy,
-  preventHPP,
 } from '../middlewares/security.js';
 import { xssSanitize } from '../middlewares/xss.js';
 import { requestTracing } from '../utils/tracing.js';
@@ -25,7 +24,6 @@ export default async function appLoader() {
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(xssSanitize);
-  app.use(preventHPP);
   logger.info('Middlewares loaded');
   mountRoutes(app);
   logger.info('Routes Mounted');

@@ -1,7 +1,6 @@
 import helmet from 'helmet';
 import cors from 'cors';
 import ratelimit from 'express-rate-limit';
-import hpp from 'hpp';
 import config from '../config/index.js';
 
 export const apiRateLimiter = ratelimit({
@@ -17,5 +16,3 @@ export const corsPolicy = cors({
   origin: config.corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
 });
-
-export const preventHPP = hpp();

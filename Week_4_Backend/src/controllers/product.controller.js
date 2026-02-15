@@ -14,6 +14,7 @@ export const createProduct = async (req, res, next) => {
 
 export const getProducts = async (req, res, next) => {
   try {
+    console.log('QUERY PARAMS:', req.query);
     const result = await productService.getProducts(req.query);
     res.json({
       success: true,

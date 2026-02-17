@@ -1,12 +1,14 @@
 from sentence_transformers import CrossEncoder
 from src.retriever.hybrid_retriever import HybridRetriever
+from src.config.settings import RERANKER_MODEL
+
 from src.utils.logger import logger
 
 
 class Reranker:
     def __init__(self, embedder):
         logger.info("Initializing reranker")
-        self.cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-2-v2")
+        self.cross_encoder = CrossEncoder(RERANKER_MODEL)
         self.retriever = HybridRetriever(embedder)
 
     def search(self, query):

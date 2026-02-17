@@ -15,8 +15,8 @@ METADATA_FILE = Path("src/data/clip_metadata.jsonl")
 
 
 def clean_ocr(text):
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'[^a-zA-Z0-9.,:/\-\s]', '', text)
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[^a-zA-Z0-9.,:/\-\s]", "", text)
     return text.strip()
 
 
@@ -32,7 +32,18 @@ def useful_image(path, ocr, caption):
     if any(word in caption_low for word in ["logo", "brand", "trademark"]):
         return False
 
-    if any(word in caption_low for word in ["chart", "graph", "diagram", "flow", "architecture", "table", "plot"]):
+    if any(
+        word in caption_low
+        for word in [
+            "chart",
+            "graph",
+            "diagram",
+            "flow",
+            "architecture",
+            "table",
+            "plot",
+        ]
+    ):
         return True
 
     digits = sum(c.isdigit() for c in ocr)
@@ -82,13 +93,11 @@ def run():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     processor = BlipProcessor.from_pretrained(
-        "Salesforce/blip-image-captioning-base",
-        local_files_only=True
+        "Salesforce/blip-image-captioning-base", local_files_only=True
     )
 
     model = BlipForConditionalGeneration.from_pretrained(
-        "Salesforce/blip-image-captioning-base",
-        local_files_only=True
+        "Salesforce/blip-image-captioning-base", local_files_only=True
     )
 
     model.to(device)
@@ -97,7 +106,6 @@ def run():
     pdfs = list(RAW_DATA.glob("*.pdf"))
 
     with open(METADATA_FILE, "w", encoding="utf-8") as writer:
-
         for pdf in tqdm(pdfs):
             images = extract_images(pdf)
 
@@ -122,7 +130,7 @@ def run():
                         "page": page,
                         "caption": caption,
                         "ocr_text": ocr,
-                        "retrieval_text": retrieval_text
+                        "retrieval_text": retrieval_text,
                     }
 
                     writer.write(json.dumps(record) + "\n")

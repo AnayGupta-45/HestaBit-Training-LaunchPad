@@ -11,6 +11,8 @@ class ContextBuilder:
 
     def run(self, query, top_k=5):
         reranked, query_emb = self.reranker.search(query)
+        reranked = sorted(reranked, key=lambda x: x["rerank_score"], reverse=True)
+        reranked = reranked[:8]
         selected = self.mmr.select(query_emb, reranked, top_k)
 
         context_blocks = []

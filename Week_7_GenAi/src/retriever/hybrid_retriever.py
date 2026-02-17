@@ -4,16 +4,22 @@ import numpy as np
 import re
 from pathlib import Path
 from rank_bm25 import BM25Okapi
-from src.config.settings import VECTORSTORE_DIR, EMBEDDINGS_DIR, TOP_K_VECTOR, TOP_K_KEYWORD
+from src.config.settings import (
+    VECTORSTORE_DIR,
+    EMBEDDINGS_DIR,
+    TOP_K_VECTOR,
+    TOP_K_KEYWORD,
+)
 from src.utils.logger import logger
 
 
 class HybridRetriever:
+    # Handles hybrid semantic + keyword retrieval
     def __init__(self, embedder):
-        logger.info("Initializing Hybrid Retriever (Production Mode)")
+        logger.info("Initializing Hybrid Retriever")
 
         self.model = embedder
-        
+
         v_dir = Path(VECTORSTORE_DIR)
         index_path = v_dir / "index.faiss"
         meta_path = v_dir / "metadata.json"
@@ -32,9 +38,7 @@ class HybridRetriever:
 
         self.embeddings = np.load(embeddings_path)
 
-        self.bm25 = BM25Okapi(
-            [self._tokenize(m["text"]) for m in self.metadata]
-        )
+        self.bm25 = BM25Okapi([self._tokenize(m.get("text")) for m in self.metadata])
 
     def _tokenize(self, text):
         return re.sub(r"[^a-z0-9\s]", " ", text.lower()).split()
@@ -45,19 +49,24 @@ class HybridRetriever:
         results = []
 
         for score, idx in zip(scores[0], idxs[0]):
+            if idx == -1:
+                continue
+
             meta = self.metadata[idx]
 
-            results.append({
-                "chunk_id": idx,
-                "text": meta["text"],
-                "metadata": meta,
-                "embedding": self.embeddings[idx],
-                "vector_score": float(score),
-                "source": "semantic"
-            })
+            results.append(
+                {
+                    "chunk_id": idx,
+                    "text": meta.get("text", ""),
+                    "metadata": meta.get("metadata", {}),
+                    "embedding": self.embeddings[idx],
+                    "vector_score": float(score),
+                    "source": "semantic",
+                }
+            )
 
         return results
-
+    
     def keyword_search(self, query):
         scores = self.bm25.get_scores(self._tokenize(query))
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
@@ -70,14 +79,16 @@ class HybridRetriever:
 
             meta = self.metadata[idx]
 
-            results.append({
-                "chunk_id": idx,
-                "text": meta["text"],
-                "metadata": meta,
-                "embedding": self.embeddings[idx],
-                "keyword_score": float(score),
-                "source": "keyword"
-            })
+            results.append(
+                {
+                    "chunk_id": idx,
+                    "text": meta.get("text", ""),
+                    "metadata": meta.get("metadata", {}),
+                    "embedding": self.embeddings[idx],
+                    "keyword_score": float(score),
+                    "source": "keyword",
+                }
+            )
 
         return results
 

@@ -9,3 +9,4 @@ certs/
 venv
 .venv
 .ipynb_checkpoints/
+corsTest.html

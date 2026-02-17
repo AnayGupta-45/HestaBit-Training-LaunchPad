@@ -1,0 +1,22 @@
+[
+  {
+    "role": "assistant",
+    "content": "There are 1,000 products in the dataset."
+  },
+  {
+    "role": "user",
+    "content": "and how many of them are below $50"
+  },
+  {
+    "role": "assistant",
+    "content": "There are a total of 47 items."
+  },
+  {
+    "role": "user",
+    "content": "what was the last amount of products you told me"
+  },
+  {
+    "role": "assistant",
+    "content": "You previously mentioned that there were 1000 products."
+  }
+]

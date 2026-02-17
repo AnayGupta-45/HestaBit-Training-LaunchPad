@@ -9,7 +9,6 @@ DB_PATH = "src/data/sales.db"
 
 
 class SQLPipeline:
-
     def __init__(self):
         self.generator = SQLGenerator()
         self.schema_text = schema_as_text()
@@ -42,11 +41,8 @@ Return ONLY corrected SELECT query.
         output = generate(fix_prompt)
 
         import re
-        match = re.search(
-            r"(select\s+.*?;)",
-            output,
-            re.IGNORECASE | re.DOTALL
-        )
+
+        match = re.search(r"(select\s+.*?;)", output, re.IGNORECASE | re.DOTALL)
 
         if not match:
             raise ValueError("Failed to auto-correct SQL.")

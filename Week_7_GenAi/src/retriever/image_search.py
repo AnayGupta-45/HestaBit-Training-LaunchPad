@@ -14,7 +14,6 @@ METADATA = Path("src/data/clip_metadata.jsonl")
 
 
 class ImageSearch:
-
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -33,13 +32,11 @@ class ImageSearch:
         self.text_model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
         self.caption_processor = BlipProcessor.from_pretrained(
-            "Salesforce/blip-image-captioning-base",
-            local_files_only=True
+            "Salesforce/blip-image-captioning-base", local_files_only=True
         )
 
         self.caption_model = BlipForConditionalGeneration.from_pretrained(
-            "Salesforce/blip-image-captioning-base",
-            local_files_only=True
+            "Salesforce/blip-image-captioning-base", local_files_only=True
         ).to(self.device)
 
         self.caption_model.eval()
@@ -50,7 +47,9 @@ class ImageSearch:
 
     def caption_query_image(self, path):
         image = Image.open(path).convert("RGB")
-        inputs = self.caption_processor(images=image, return_tensors="pt").to(self.device)
+        inputs = self.caption_processor(images=image, return_tensors="pt").to(
+            self.device
+        )
 
         with torch.no_grad():
             out = self.caption_model.generate(**inputs)
@@ -71,7 +70,11 @@ class ImageSearch:
         return [self.records[i] for i in idx[0] if i != -1]
 
     def image_to_image(self, path, k=5):
-        img = self.preprocess(Image.open(path).convert("RGB")).unsqueeze(0).to(self.device)
+        img = (
+            self.preprocess(Image.open(path).convert("RGB"))
+            .unsqueeze(0)
+            .to(self.device)
+        )
 
         with torch.no_grad():
             emb = self.model.encode_image(img).cpu().numpy().astype("float32")
@@ -86,7 +89,11 @@ class ImageSearch:
 
         query_caption = self.caption_query_image(path)
 
-        img = self.preprocess(Image.open(path).convert("RGB")).unsqueeze(0).to(self.device)
+        img = (
+            self.preprocess(Image.open(path).convert("RGB"))
+            .unsqueeze(0)
+            .to(self.device)
+        )
 
         with torch.no_grad():
             img_emb = self.model.encode_image(img).cpu().numpy().astype("float32")
@@ -111,7 +118,9 @@ class ImageSearch:
 
         rerank_scores = self.reranker.predict(pairs)
 
-        ranked = sorted(zip(candidates, rerank_scores), key=lambda x: x[1], reverse=True)
+        ranked = sorted(
+            zip(candidates, rerank_scores), key=lambda x: x[1], reverse=True
+        )
 
         return [r[0]["retrieval_text"] for r in ranked[:k]]
 

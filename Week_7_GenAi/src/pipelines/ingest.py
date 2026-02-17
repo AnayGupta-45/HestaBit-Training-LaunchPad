@@ -8,11 +8,12 @@ from src.utils.pdf_processor import extract_text_and_tables
 from src.utils.logger import logger
 from src.config.settings import RAW_DATA_PATH, CHUNK_SIZE, CHUNK_OVERLAP, CHUNKS_PATH
 
+
 def process_documents():
     logger.info("Starting ingestion with Page-Level Metadata")
-    
+
     pdf_files = list(Path(RAW_DATA_PATH).glob("*.pdf"))
-    
+
     if not pdf_files:
         logger.error(f"No PDF files found in {RAW_DATA_PATH}")
         return []
@@ -20,21 +21,20 @@ def process_documents():
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""]
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
-    
+
     all_chunks = []
 
     for pdf_file in tqdm(pdf_files, desc="Processing PDFs", unit="file"):
         try:
-            logger.info(f"Reading file: {pdf_file.name}") 
+            logger.info(f"Reading file: {pdf_file.name}")
 
             pages = extract_text_and_tables(str(pdf_file))
-            
-            for page_data in pages:
 
+            for page_data in pages:
                 cleaned_text = clean_text(page_data["text"])
-                
+
                 if not cleaned_text:
                     continue
 
@@ -48,16 +48,17 @@ def process_documents():
                         "metadata": {
                             "source": pdf_file.name,
                             "page": page_data["page"],
-                            "chunk_index": idx
-                        }
+                            "chunk_index": idx,
+                        },
                     }
                     all_chunks.append(chunk_data)
-                
+
         except Exception as e:
             logger.error(f"Failed to process {pdf_file.name}: {e}")
 
     logger.info(f"Processed {len(pdf_files)} files into {len(all_chunks)} chunks")
     return all_chunks
+
 
 def save_chunks(chunks):
     if not chunks:
@@ -70,9 +71,11 @@ def save_chunks(chunks):
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
     logger.info(f"Saved to {CHUNKS_PATH}")
 
+
 def main():
     chunks = process_documents()
     save_chunks(chunks)
+
 
 if __name__ == "__main__":
     main()

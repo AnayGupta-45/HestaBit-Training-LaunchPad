@@ -5,6 +5,7 @@ from pathlib import Path
 CSV_PATH = "src/data/raw/product.csv"
 DB_PATH = "src/data/sales.db"
 
+
 def create_database():
     Path("src/data").mkdir(parents=True, exist_ok=True)
 
@@ -34,9 +35,19 @@ def create_database():
     """)
 
     df.columns = [
-        "idx", "name", "description", "brand", "category",
-        "price", "currency", "stock", "ean",
-        "color", "size", "availability", "internal_id"
+        "idx",
+        "name",
+        "description",
+        "brand",
+        "category",
+        "price",
+        "currency",
+        "stock",
+        "ean",
+        "color",
+        "size",
+        "availability",
+        "internal_id",
     ]
 
     df.to_sql("products", conn, if_exists="append", index=False)
@@ -45,6 +56,7 @@ def create_database():
     conn.close()
 
     print("Database created successfully at:", DB_PATH)
+
 
 if __name__ == "__main__":
     create_database()

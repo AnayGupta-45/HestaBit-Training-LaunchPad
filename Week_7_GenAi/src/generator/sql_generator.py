@@ -1,8 +1,8 @@
 import re
 from src.generator.llm_client import generate
 
-class SQLGenerator:
 
+class SQLGenerator:
     def generate_sql(self, question: str, schema_text: str) -> str:
         prompt = f"""
 You are an expert SQLite SQL generator.
@@ -23,11 +23,7 @@ Rules:
 
         output = generate(prompt)
 
-        match = re.search(
-            r"(select\s+.*?;)",
-            output,
-            re.IGNORECASE | re.DOTALL
-        )
+        match = re.search(r"(select\s+.*?;)", output, re.IGNORECASE | re.DOTALL)
 
         if not match:
             raise ValueError(f"Failed to extract SQL from LLM output:\n{output}")

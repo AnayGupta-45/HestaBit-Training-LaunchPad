@@ -37,9 +37,12 @@ def build():
     ocr_vecs = []
 
     for rec in tqdm(records):
-
         try:
-            img = preprocess(Image.open(rec["image_path"]).convert("RGB")).unsqueeze(0).to(device)
+            img = (
+                preprocess(Image.open(rec["image_path"]).convert("RGB"))
+                .unsqueeze(0)
+                .to(device)
+            )
 
             with torch.no_grad():
                 img_emb = model.encode_image(img).cpu().numpy().astype("float32")

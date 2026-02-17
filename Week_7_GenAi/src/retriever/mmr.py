@@ -2,7 +2,7 @@ import numpy as np
 
 
 class MMR:
-    def __init__(self, lambda_param=0.7):
+    def __init__(self, lambda_param=0.9):
         self.lambda_param = lambda_param
 
     def select(self, query_emb, docs, top_k):
@@ -17,9 +17,11 @@ class MMR:
                 relevance = np.dot(query_emb, embeddings[idx])
                 diversity = max(
                     [np.dot(embeddings[idx], embeddings[s]) for s in selected],
-                    default=0
+                    default=0,
                 )
-                score = self.lambda_param * relevance - (1 - self.lambda_param) * diversity
+                score = (
+                    self.lambda_param * relevance - (1 - self.lambda_param) * diversity
+                )
                 scores.append((score, idx))
 
             best = max(scores, key=lambda x: x[0])[1]

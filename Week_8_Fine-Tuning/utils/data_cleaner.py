@@ -9,14 +9,15 @@ from datasets import load_dataset
 SEED = 42
 MIN_TOKENS = 15
 MAX_TOKENS = 256
-OUTPUT_DIR = "data"
+DATA_DIR = "data"
+OUTPUTS_DIR = "output"
 SAMPLE_SIZE = {"qa": 600, "reasoning": 525, "extraction": 375}
 
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(message)s",
-    handlers=[logging.FileHandler("data_cleaner.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler("logs/data_cleaner.log"), logging.StreamHandler()],
 )
 log = logging.getLogger(__name__)
 
@@ -126,8 +127,8 @@ def plot_analysis(df):
     axes[1].tick_params(axis="x", rotation=0)
 
     plt.tight_layout()
-    plt.savefig(f"{OUTPUT_DIR}/analysis.png")
-    log.info(f"graph saved → {OUTPUT_DIR}/analysis.png")
+    plt.savefig(f"{OUTPUTS_DIR}/analysis.png")
+    log.info(f"graph saved → {OUTPUTS_DIR}/analysis.png")
 
 
 # run the full pipeline
@@ -141,9 +142,9 @@ def main():
     train_df = df[:split]
     val_df = df[split:]
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    save_jsonl(train_df, f"{OUTPUT_DIR}/train.jsonl")
-    save_jsonl(val_df, f"{OUTPUT_DIR}/val.jsonl")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    save_jsonl(train_df, f"{DATA_DIR}/train.jsonl")
+    save_jsonl(val_df, f"{DATA_DIR}/val.jsonl")
     plot_analysis(df)
 
 

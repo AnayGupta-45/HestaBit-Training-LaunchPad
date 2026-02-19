@@ -2,35 +2,39 @@
 
 ## Dataset Used
 
-I used the tatsu-lab/alpaca dataset from HuggingFace.
-It had 52,002 samples in instruction/input/output format.
+I used the sahil2801/CodeAlpaca-20k dataset from HuggingFace.
+It had 20,022 coding-specific samples in instruction/input/output format, covering topics like Python, algorithms, debugging, and SQL.
 
 ## Problems in the Dataset
 
-- 28 samples had empty outputs
-- 674 samples were too short (less than 15 tokens)
-- 2,986 samples were too long (more than 256 tokens)
-- Total removed: 3,688 samples
+- 28 samples had empty outputs — no useful information to learn from
+- 456 samples were too short (less than 15 tokens) — too brief to be meaningful
+- 230 samples were too long (more than 256 tokens) — too long for a small model to handle efficiently
+- Total removed: 714 samples
 
 ## Split the Data into Train and Validation samples
 
-After cleaning I sampled 1,300 rows and split them:
+After cleaning I sampled 1,500 rows and split them into 80% train and 20% validation:
 
-- Train: 1,040 samples
-- Validation: 260 samples
+- Train: 1,200 samples
+- Validation: 300 samples
 
 ## Samples in the Dataset
 
-- QA: 520 samples
-- Reasoning: 455 samples
-- Extraction: 325 samples
+Each sample was labeled based on keywords found in the instruction:
+
+- QA: 600 samples — questions like write, create, build, fix, debug
+- Reasoning: 525 samples — questions like explain, compare, analyze, why
+- Extraction: 375 samples — questions like list, find, identify, summarize
 
 ## Token length statistics
 
+Token length was calculated by counting words across instruction, input, and output fields combined:
+
 - Minimum: 15 tokens
 - Maximum: 256 tokens
-- Average: 58 tokens
-- Median: 45 tokens
+- Average: ~50 tokens
+- Median: ~38 tokens
 
 ## Output files/Deliverables
 

@@ -2,29 +2,28 @@ import os
 import json
 import logging
 import pandas as pd
-from datasets import load_dataset
 import matplotlib.pyplot as plt
+from datasets import load_dataset
 
 
 SEED = 42
 MIN_TOKENS = 15
 MAX_TOKENS = 256
-DATA_DIR = "data"
-OUTPUTS_DIR = "output"
-SAMPLE_SIZE = {"qa": 520, "reasoning": 455, "extraction": 325}
+OUTPUT_DIR = "data"
+SAMPLE_SIZE = {"qa": 600, "reasoning": 525, "extraction": 375}
 
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(message)s",
-    handlers=[logging.FileHandler("logs/data_cleaner.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler("data_cleaner.log"), logging.StreamHandler()],
 )
 log = logging.getLogger(__name__)
 
 
 # load dataset and keep only required columns
 def load_data():
-    df = pd.DataFrame(load_dataset("tatsu-lab/alpaca")["train"])
+    df = pd.DataFrame(load_dataset("sahil2801/CodeAlpaca-20k")["train"])
     df = df[["instruction", "input", "output"]].copy()
     log.info(f"loaded {len(df)} rows")
     return df
@@ -58,7 +57,21 @@ def label_type(instruction):
         return "extraction"
     if any(k in text for k in ["why", "should", "compare", "analyze", "explain"]):
         return "reasoning"
-    if any(k in text for k in ["what", "who", "when", "where", "how"]):
+    if any(
+        k in text
+        for k in [
+            "what",
+            "who",
+            "when",
+            "where",
+            "how",
+            "write",
+            "create",
+            "build",
+            "fix",
+            "debug",
+        ]
+    ):
         return "qa"
     return "other"
 
@@ -98,6 +111,7 @@ def save_jsonl(df, path):
             )
     log.info(f"saved {len(df)} rows → {path}")
 
+
 # plot and save token length and category distribution
 def plot_analysis(df):
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -105,13 +119,15 @@ def plot_analysis(df):
     df["token_length"].hist(bins=40, ax=axes[0], color="steelblue", edgecolor="black")
     axes[0].set_title("Token Length Distribution")
 
-    df["type"].value_counts().plot(kind="bar", ax=axes[1], color="steelblue", edgecolor="black")
+    df["type"].value_counts().plot(
+        kind="bar", ax=axes[1], color="steelblue", edgecolor="black"
+    )
     axes[1].set_title("Category Distribution")
     axes[1].tick_params(axis="x", rotation=0)
 
     plt.tight_layout()
-    plt.savefig(f"{OUTPUTS_DIR}/analysis.png")
-    log.info(f"graph saved → {OUTPUTS_DIR}/analysis.png")
+    plt.savefig(f"{OUTPUT_DIR}/analysis.png")
+    log.info(f"graph saved → {OUTPUT_DIR}/analysis.png")
 
 
 # run the full pipeline
@@ -125,10 +141,11 @@ def main():
     train_df = df[:split]
     val_df = df[split:]
 
-    os.makedirs(DATA_DIR, exist_ok=True)
-    save_jsonl(train_df, f"{DATA_DIR}/train.jsonl")
-    save_jsonl(val_df, f"{DATA_DIR}/val.jsonl")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    save_jsonl(train_df, f"{OUTPUT_DIR}/train.jsonl")
+    save_jsonl(val_df, f"{OUTPUT_DIR}/val.jsonl")
     plot_analysis(df)
-    
+
+
 if __name__ == "__main__":
     main()

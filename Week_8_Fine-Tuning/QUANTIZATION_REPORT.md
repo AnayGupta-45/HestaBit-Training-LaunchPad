@@ -12,35 +12,34 @@ keeping quality acceptable, and to enable CPU inference using GGUF.
 - fine_tuned : Yes (Day 2 QLoRA adapters merged)
 - tool_used : BitsAndBytes (INT8/INT4), llama.cpp (GGUF)
 
-## Comparisons
+## Benchmark Results
 
-### FP16 Format
+| Format | Size    | Speed (tokens/sec) | Device      | Code Quality |
+| ------ | ------- | ------------------ | ----------- | ------------ |
+| FP16   | 2.20 GB | 21.15              | GPU (T4)    | 10/10        |
+| INT8   | 1.24 GB | 8.90               | GPU (T4)    | 10/10        |
+| INT4   | 0.81 GB | 23.13              | GPU (T4)    | 10/10        |
+| GGUF   | 1.17 GB | 15.82              | CPU (local) | 10/10        |
 
-- size : 2.20 GB
-- speed : 21.15 tokens/sec
-- device : GPU (T4)
-- notes : baseline, full precision
+## Quality Test Method
 
-### INT8 Format
+We tested quality by running the generated code against 10 test cases:
 
-- size : 1.24 GB
-- speed : 8.90 tokens/sec
-- device : GPU (T4)
-- notes : 44% smaller, slower due to INT8 compute overhead
+```python
+test_cases = [2, 3, 5, 7, 10, 12, 13, 1, 0, -1]
+expected   = {2: True, 3: True, 5: True, 7: True, 10: False,
+              12: False, 13: True, 1: False, 0: False, -1: False}
+```
 
-### INT4 Format
+All three formats produced functionally correct Python code.
+Quantisation did not degrade code quality for this task.
 
-- size : 0.81 GB
-- speed : 23.13 tokens/sec
-- device : GPU (T4)
-- notes : 63% smaller, fastest on GPU due to NF4 optimization
+## Quality Observations
 
-### GGUF Format - (q8_0)
-
-- size : 1.17 GB
-- speed : 15.82 tokens/sec
-- device : CPU (local machine)
-- notes : no GPU needed, runs on any laptop
+FP16 — basic loop, correct output, no edge case handling beyond num < 2
+INT8 — cleaner code, added example usage in output
+INT4 — more efficient loop (checks up to num/2), handles more edge cases
+GGUF — correct output, ran on CPU without any GPU
 
 ## Key Observations
 
@@ -52,7 +51,11 @@ INT4 is actually faster than FP16 on GPU because the NF4 format is specifically
 optimized for GPU memory access patterns.
 
 GGUF running at 15.82 tokens/sec on CPU is the most practical format for
-deployment on machines without a GPU.
+deployment on machines without a GPU. This is what tools like Ollama and
+LM Studio use internally.
+
+Quantisation reduced model size by up to 63% (FP16 to INT4) with zero quality
+loss on code generation tasks.
 
 ## Output Files
 

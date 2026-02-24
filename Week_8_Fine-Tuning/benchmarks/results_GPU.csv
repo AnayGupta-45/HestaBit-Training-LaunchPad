@@ -1,0 +1,4 @@
+model,engine,tokens_per_sec,latency_sec,vram_mb,accuracy
+Base-Model,transformers,36.15,4.37,2543.5,0.719
+Fine-Tuned,transformers,64.9,4.35,2543.03,0.72
+GGUF-Q8,llama.cpp,3.33,59.39,0,0.731

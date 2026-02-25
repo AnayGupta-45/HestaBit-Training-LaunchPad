@@ -1,0 +1,38 @@
+# Virtual environments
+venv/
+.env/
+__pycache__/
+*.pyc
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Training artifacts
+adapters/
+data/
+benchmarks/
+Test/
+
+# Reports
+*.md
+
+# Quantization artifacts except GGUF
+quantized/base_model-fp16/
+quantized/model_FP16/
+quantized/model_INT4/
+quantized/model_INT8/
+
+# Output images
+output/
+
+# OS files
+.DS_Store

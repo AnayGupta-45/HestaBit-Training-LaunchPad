@@ -1,114 +1,124 @@
-# DAY 3 — TOOL CALLING AGENTS
+# DAY 3 — TOOL-CALLING AGENTS
 
-## Orchestrator → Tools → Summarizer
+## Orchestrator + Specialized Agents + Real Functions
 
 ---
 
 ## What We Built
 
-In Day 1 and Day 2, agents were only doing LLM reasoning — thinking and returning text.
-Day 3 agents actually do real things — read files from disk, execute Python code,
-and run SQL queries on a real database. The LLM decides what to do, real Python functions do it.
+Day 3 moves from "LLM-only reasoning" to "LLM + executable tools".
+
+We built a small multi-agent system with:
+
+- **Orchestrator**: chooses which agent(s) should handle the query
+- **CodeAgent**: writes and runs Python through `execute_python`
+- **DBAgent**: runs SQL on Titanic SQLite through `run_query`
+- **FileAgent**: inspects/reads CSV and writes text files
+- **Summarizer**: merges outputs from selected agents into final answer
 
 ---
 
-## The Core Idea
+## Actual Runtime Flow (`main.py`)
 
-Day 1 & 2 → LLM imagines the answer
-
-Day 3 → LLM directs, Python executes, results are real
-
----
-
-## Execution Flow
-
-```
+```text
 User Query
-    ↓
-Orchestrator        → reads query, decides which tools are needed
-    ↓
-File Agent          → reads actual file from disk        (if needed)
-Code Agent          → executes real Python code          (if needed)
-DB Agent            → runs SQL on real SQLite database   (if needed)
-    ↓
-Summarizer          → reads all tool results, gives final answer
+   ↓
+Orchestrator (returns: dbagent/codeagent/fileagent)
+   ↓
+Selected agents run one-by-one on the same query
+   ↓
+Collect raw outputs
+   ↓
+Summarizer writes final response (<= 8 lines)
 ```
+
+Implementation detail:
+
+- Orchestrator reply is parsed as lowercase text.
+- Agent selection is keyword-based (`codeagent`, `dbagent`, `fileagent`) and deduplicated.
+- If no valid agent name appears, execution stops with: `Could not decide an agent.`
 
 ---
 
-## What Each Tool Does
+## Agents and Tools
 
-**File Agent** (`tools/file_agent.py`)
-A plain Python function that reads any file from disk using `open()`.
-No LLM involved. Just reads and returns raw content.
-Also supports writing files back to disk.
+### 1) CodeAgent
 
-**Code Agent** (`tools/code_executor.py`)
-Takes a Python code string and runs it using `exec()`.
-Captures the stdout output and returns it.
-This means real computation happens — not LLM guessing numbers.
+- Tool: `execute_python(code: str) -> str`
+- File: `tools/code_executor.py`
+- Behavior:
+  - Compiles code first (syntax check)
+  - Executes with Python standard library only policy (prompt-level rule)
+  - Captures printed stdout and returns it
+  - Returns explicit `Syntax error: ...` or `Error: ...` when execution fails
 
-**DB Agent** (`tools/db_agent.py`)
-Loads titanic.csv into a real SQLite database file.
-Runs actual SQL queries on it and returns formatted results.
-Every run recreates the table fresh from the CSV.
+### 2) DBAgent
 
----
+- Tool: `run_query(sql: str) -> str`
+- File: `tools/db_tools.py`
+- Database: `sample_data/sample.db`
+- Source CSV: `sample_data/titanic.csv`
+- Behavior:
+  - Auto-creates DB/table from CSV on first use (`setup_db()`)
+  - Expects SQL `SELECT` usage via system prompt
+  - Returns tabular text: header + separator + rows
+  - Returns `Query error: ...` on SQL/runtime failures
 
-## What Each Agent Does
+### 3) FileAgent
 
-**Orchestrator** (`agents/orchestrator.py`)
-Runs first. Reads the user query and returns which tools are needed.
-We safely parse its response by scanning for known tool names —
-because small local models like phi3 sometimes return extra text along with the answer.
-
-```python
-known_tools = ["file_agent", "code_agent", "db_agent"]
-selected_tools = [t for t in known_tools if t in raw]
-```
-
-**Summarizer** (`agents/orchestrator.py`)
-Runs last. Receives all tool results together and produces
-a clean, concise final answer. This is the only LLM step that touches the results.
-
----
-
-## File Structure
-
-```
-day3/
-├── main.py                     # entry point, runs full pipeline
-├── loader.py                   # ollama + phi3 client
-├── TOOL-CHAIN.md
-├── agents/
-│   └── orchestrator.py         # orchestrator + summarizer agents
-├── tools/
-│   ├── file_agent.py           # reads and writes files
-│   ├── code_executor.py        # executes python code strings
-│   └── db_agent.py             # loads csv into sqlite, runs sql
-└── sample_data/
-    ├── titanic.csv              # 100 rows of titanic passenger data
-    └── sample.db                # sqlite database generated at runtime
-```
+- Tools (in `tools/file_tools.py`):
+  - `inspect_csv(filename)` → columns + row count
+  - `read_csv(filename)` → first 5 rows
+  - `write_file(filename, content)` → writes text file
+- Behavior:
+  - CSV operations resolve files from `sample_data/`
+  - Write operation writes to current working directory
 
 ---
 
-## Key Concepts Practiced
+## Model Setup (`loader.py`)
 
-**Real tool execution** — tools are Python functions, not LLM calls.
-Results are factual, not generated.
+- Provider: Groq via OpenAI-compatible endpoint
+- Model: `llama-3.3-70b-versatile`
+- Function calling: enabled (`"function_calling": True`)
 
-**Defensive parsing** — small models don't always follow strict formatting.
-We scan the response for known keywords instead of trusting exact output.
-
-**Separation of concerns** — orchestrator only plans, tools only execute,
-summarizer only synthesizes. Each piece has one job.
+This is critical because Day 3 depends on reliable tool-calling behavior.
 
 ---
 
 ## What Changed vs Day 2
 
-Day 2 was still fully LLM-based — workers reasoned and returned text answers.
-Day 3 introduces real execution. The LLM is now a director, not the worker.
+- Day 2 focused on planning/orchestration patterns (DAG + validation).
+- Day 3 focuses on **grounded execution**:
+  - LLM decides _which tool to call_
+  - Python functions do the real work
+  - Results come from code/SQL/files, not model memory
 
-This is the foundation of real agentic systems — LLMs decide, code executes.
+---
+
+## Example Query Routing
+
+- "How many passengers survived?" -> `dbagent`
+- "Print fibonacci till 50" -> `codeagent`
+- "Inspect titanic.csv" -> `fileagent`
+- "Find survivors and write summary to output.txt" -> likely multiple agents
+
+---
+
+## Practical Limitations (Current Version)
+
+- Orchestrator decision parsing is simple string matching.
+- Agents run sequentially, not parallel.
+- `run_query` does not enforce hard SQL safety checks beyond prompt guidance.
+- `read_csv` assumes there is at least one row after headers.
+
+These are acceptable for Day 3 learning goals and can be hardened later.
+
+---
+
+## Key Day 3 Lesson
+
+In earlier days, LLMs mostly generated text.
+In Day 3, LLMs become **controllers** that invoke deterministic tools.
+
+That shift (reasoning + execution) is the foundation of reliable agentic systems.

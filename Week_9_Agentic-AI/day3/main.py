@@ -1,117 +1,58 @@
 import asyncio
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(__file__))
-
-from tools.file_agent import read_file
-from tools.code_executor import execute_python
-from tools.db_agent import run_query
 from agents.orchestrator import build_orchestrator, build_summarizer
+from agents.code_agent import build_code_agent
+from agents.db_agent import build_db_agent
+from agents.file_agent import build_file_agent
+
+# All available agents
+AGENTS = {
+    "codeagent": build_code_agent(),
+    "dbagent":   build_db_agent(),
+    "fileagent": build_file_agent(),
+}
 
 
-CSV_PATH = os.path.join(os.path.dirname(__file__), "sample_data/titanic.csv")
+async def run(query: str):
 
-
-def run_file_agent() -> str:
-    print("\n--- FILE AGENT ---\n")
-    content = read_file(CSV_PATH)
-    preview = "\n".join(content.split("\n")[:4])
-    print(preview)
-    print("... (truncated)")
-    return content
-
-
-def run_code_agent() -> str:
-    print("\n--- CODE AGENT ---\n")
-    code = f"""
-import csv
-from collections import defaultdict
-
-with open(r"{CSV_PATH}") as f:
-    reader = csv.DictReader(f)
-    rows = list(reader)
-
-print(f"Total Passengers: {{len(rows)}}")
-
-survived = sum(1 for r in rows if r['Survived'] == '1')
-print(f"Overall Survival Rate: {{survived/len(rows)*100:.1f}}%")
-
-by_class = defaultdict(lambda: [0, 0])
-for r in rows:
-    by_class[r['Pclass']][0] += int(r['Survived'])
-    by_class[r['Pclass']][1] += 1
-print("\\nSurvival Rate by Class:")
-for cls, (s, t) in sorted(by_class.items()):
-    print(f"  Class {{cls}}: {{s/t*100:.1f}}% survived ({{s}}/{{t}})")
-
-fares = [float(r['Fare']) for r in rows if r['Fare']]
-print(f"\\nAverage Fare: ${{sum(fares)/len(fares):.2f}}")
-print(f"Highest Fare: ${{max(fares):.2f}}")
-
-by_gender = defaultdict(lambda: [0, 0])
-for r in rows:
-    by_gender[r['Sex']][0] += int(r['Survived'])
-    by_gender[r['Sex']][1] += 1
-print("\\nSurvival Rate by Gender:")
-for gender, (s, t) in sorted(by_gender.items()):
-    print(f"  {{gender}}: {{s/t*100:.1f}}% survived ({{s}}/{{t}})")
-"""
-    result = execute_python(code)
-    print(result)
-    return result
-
-
-def run_db_agent() -> str:
-    print("\n--- DB AGENT ---\n")
-    result = run_query("""
-        SELECT Pclass, Sex,
-               COUNT(*) as total,
-               SUM(Survived) as survived,
-               ROUND(AVG(Fare), 2) as avg_fare
-        FROM titanic
-        GROUP BY Pclass, Sex
-        ORDER BY Pclass, Sex
-    """)
-    print(result)
-    return result
-
-
-async def run_pipeline(query: str):
-
-    print("\n--- STEP 1: ORCHESTRATOR (deciding tools) ---\n")
+    # Step 1 — Orchestrator picks which agents to use
+    print("\n--- STEP 1: ORCHESTRATOR ---")
     orchestrator = build_orchestrator()
-    plan_result = await orchestrator.run(task=query)
-    raw = plan_result.messages[-1].content.strip().lower()
+    response = await orchestrator.run(task=query)
+    decision = response.messages[-1].content.strip().lower()
+    print(f"Decision: {decision}")
 
-    known_tools = ["file_agent", "code_agent", "db_agent"]
-    selected_tools = [t for t in known_tools if t in raw]
-    print(f"Tools selected: {selected_tools}")
+    # Parse agent names (deduplicated)
+    selected = []
+    for name in AGENTS:
+        if name in decision and name not in selected:
+            selected.append(name)
 
-    if not selected_tools:
-        print("No tools selected. Exiting.")
+    if not selected:
+        print("Could not decide an agent. Try rephrasing.")
         return
 
-    tool_results = {}
+    # Step 2 — Run each selected agent
+    print("\n--- STEP 2: RUNNING AGENTS ---")
+    results = []
+    for name in selected:
+        print(f"\n[{name}]")
+        try:
+            res = await AGENTS[name].run(task=query)
+            output = res.messages[-1].content
+            print(output)
+            results.append(f"{name}: {output}")
+        except Exception as e:
+            print(f"Error: {e}")
+            results.append(f"{name}: Error — {str(e)[:150]}")
 
-    if "file_agent" in selected_tools:
-        tool_results["file_agent"] = run_file_agent()
-
-    if "code_agent" in selected_tools:
-        tool_results["code_agent"] = run_code_agent()
-
-    if "db_agent" in selected_tools:
-        tool_results["db_agent"] = run_db_agent()
-
-    print("\n--- STEP 3: SUMMARIZER ---\n")
+    # Step 3 — Summarizer gives final answer
+    print("\n--- STEP 3: SUMMARY ---")
     summarizer = build_summarizer()
-    summary_input = f"User Query: {query}\n\n"
-    for tool_name, result in tool_results.items():
-        summary_input += f"{tool_name} result:\n{result}\n\n"
+    summary_prompt = f"User asked: {query}\n\nResults:\n" + "\n\n".join(results)
+    summary = await summarizer.run(task=summary_prompt)
+    print(summary.messages[-1].content)
 
-    summary_result = await summarizer.run(task=summary_input)
-    print(summary_result.messages[-1].content)
 
 if __name__ == "__main__":
-    query = input("Enter your query: ")
-    asyncio.run(run_pipeline(query))
+    query = input("\nEnter your query: ")
+    asyncio.run(run(query))

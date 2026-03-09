@@ -6,8 +6,8 @@
 
 ## What We Built
 
-A 4-agent hierarchical pipeline. Unlike Day 1 where agents ran one after another,
-today the workers run in parallel and we added a reflection and validation step.
+A multi-agent pipeline where a Planner breaks the query into tasks, Workers execute
+them in parallel via a DAG, Reflection merges results, and Validator does a final check.
 
 ---
 
@@ -16,13 +16,13 @@ today the workers run in parallel and we added a reflection and validation step.
 ```
 User Query
     ↓
-Planner Agent          → breaks the query into 3 subtasks
+Planner             → breaks query into tasks (max 4)
     ↓
-Worker 1 | Worker 2 | Worker 3    → all 3 run at the same time
+worker_1 | worker_2 | worker_3 | worker_4    → run in parallel via DAG
     ↓
-Reflection Agent       → merges all worker outputs into one clean answer
+Reflection Agent    → merges all worker outputs
     ↓
-Validator Agent        → checks if the answer actually addresses the query
+Validator Agent     → checks correctness, returns {is_valid, issues}
     ↓
 Final Answer
 ```
@@ -31,61 +31,28 @@ Final Answer
 
 ## What Each Agent Does
 
-**Planner** (`orchestrator/planner.py`)
-Looks at the user query and splits it into 3 clear subtasks.
-A helper function `parse_subtasks()` extracts them into a list.
+**Planner** — receives query, returns structured JSON plan via Pydantic. Max 4 tasks.
 
-**Worker** (`agents/worker_agent.py`)
-One worker is created per subtask. All 3 run in parallel using `asyncio.gather()`.
-Each worker only knows its own subtask — they don't talk to each other.
+**Workers** — one per task, named worker_1, worker_2 etc. Each only knows its own task.
 
-**Reflection Agent** (`agents/reflection_agent.py`)
-Receives all 3 worker outputs together.
-Merges them, removes duplicates, and returns one clean unified response.
+**Reflection** — fan-in node in DAG, merges all worker outputs into one clean response.
 
-**Validator Agent** (`agents/validator.py`)
-Takes the reflection output and the original query.
-Checks if the answer is complete and correct.
-Responds with `[VALID]` or `[INVALID]` and explains why.
+**Validator** — last node, returns structured JSON `{is_valid, issues}` via Pydantic.
 
 ---
 
-## File Structure
+## Key Concepts
 
-```
-day2/
-├── main.py
-├── loader.py
-├── FLOW-DIAGRAM.md
-├── orchestrator/
-│   └── planner.py
-└── agents/
-    ├── worker_agent.py
-    ├── reflection_agent.py
-    └── validator.py
-```
+**DAG execution** — built using AutoGen's `DiGraphBuilder`. Workers are parallel nodes,
+edges define who passes to whom, results converge at Reflection Agent.
 
----
+**Pydantic models** — planner and validator outputs are validated. Wrong format = immediate error.
 
-## Key Concepts Practiced
-
-**Parallel execution** — workers don't wait for each other, they all run at once.
-This is done using `asyncio.gather()` which fires all coroutines simultaneously.
-
-**Reflection step** — instead of directly validating raw worker output,
-we first merge and clean it. This improves the quality of the final answer.
-
-**Validation gate** — the validator is the last checkpoint.
-Nothing goes to the user without passing through it.
-
-**Dynamic agent creation** — workers are not hardcoded.
-They are created at runtime based on however many subtasks the planner returns.
+**Dynamic workers** — number of workers depends on planner output, not hardcoded.
 
 ---
 
 ## What Changed vs Day 1
 
-Day 1 was strictly linear — research → summarize → answer, one by one.
-
-Day 2 introduces parallelism, a merging step, and a validation layer on top.
-The system is now more robust and closer to how real agent pipelines work.
+Day 1 was linear and sequential. Day 2 uses a DAG with parallel workers,
+structured outputs, and a proper validation gate.

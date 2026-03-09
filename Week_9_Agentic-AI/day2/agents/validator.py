@@ -2,23 +2,26 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from typing import List
+from pydantic import BaseModel
 from autogen_agentchat.agents import AssistantAgent
 from loader import get_model_client
+
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    issues: List[str]
 
 
 def build_validator_agent() -> AssistantAgent:
     return AssistantAgent(
         name="validator_agent",
+        model_client=get_model_client(),
         system_message=(
             "You are a Validator Agent.\n"
-            "You will receive a response and the original user query.\n"
-            "Check for:\n"
-            "1. Does it answer the original query?\n"
-            "2. Are there any factual errors or contradictions?\n"
-            "3. Is anything critical missing?\n"
-            "If valid: start your response with [VALID] then give the final answer.\n"
-            "If invalid: start with [INVALID] then explain what is wrong.\n"
-            "Be strict but fair.\n"
+            "Check if the response correctly answers the original query.\n"
+            "Return ONLY valid JSON. No markdown. No extra text.\n"
+            'Format: {"is_valid": true, "issues": []}\n'
+            'Or: {"is_valid": false, "issues": ["issue 1", "issue 2"]}\n'
         ),
-        model_client=get_model_client(),
     )

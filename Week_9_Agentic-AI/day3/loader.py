@@ -1,7 +1,20 @@
-from autogen_ext.models.ollama import OllamaChatCompletionClient
+import os
+from dotenv import load_dotenv
+from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-def get_model_client() -> OllamaChatCompletionClient:
-    return OllamaChatCompletionClient(
-        model="phi3",
-        temperature=0.2,
+load_dotenv()
+
+def get_model_client() -> OpenAIChatCompletionClient:
+    return OpenAIChatCompletionClient(
+        model="llama-3.1-8b-instant",
+        base_url="https://api.groq.com/openai/v1",
+        api_key=os.getenv("GROQ_API_KEY"),
+        model_info={
+            "family": "openai",
+            "context_length": 8192,
+            "vision": False,
+            "function_calling": False,
+            "json_output": False,
+            "structured_output": False,
+        },
     )

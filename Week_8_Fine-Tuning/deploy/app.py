@@ -7,7 +7,7 @@ from .logger import get_request_id
 from .guardrails import is_programming_related
 import logging
 
-app = FastAPI(title="TinyLlama GGUF API")
+app = FastAPI(title="Test Model")
 
 llm = get_model()
 

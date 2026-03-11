@@ -8,7 +8,7 @@ st.set_page_config(page_title="TinyLlama Local LLM", layout="wide")
 API_SINGLE = "http://127.0.0.1:8000/generate/stream"
 API_CHAT = "http://127.0.0.1:8000/chat/stream"
 
-st.title("TinyLlama GGUF Local LLM")
+st.title("Test Model")
 
 mode = st.radio("Mode", ["Single Prompt", "Chat Mode"], horizontal=True)
 

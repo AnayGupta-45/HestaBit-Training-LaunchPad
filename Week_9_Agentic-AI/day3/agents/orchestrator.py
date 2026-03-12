@@ -4,30 +4,58 @@ from loader import get_model_client
 
 def build_orchestrator():
     return AssistantAgent(
-        name="Orchestrator",
+        name="orchestrator",
         model_client=get_model_client(),
-        system_message="""You are an orchestrator. Decide which agents to use for the user query.
+        system_message="""
+You are a routing system.
+
+Your job is to select which agent should handle the user query.
 
 Available agents:
-- dbagent   → any question about passengers, survival, age, gender, class (uses SQL)
-- codeagent → run Python code, math, calculations, fibonacci, loops
-- fileagent → inspect, read, or write files (only when user mentions a file)
 
-Reply with agent names only, comma-separated, lowercase. No explanation.
+dbagent   -> SQL queries about Titanic passengers
+codeagent -> Python math, algorithms, calculations
+fileagent -> read, inspect, or write files (.csv, .txt, .py)
+
+Rules:
+- Output ONLY agent names
+- Output must be exactly one line
+- Allowed outputs:
+  dbagent
+  codeagent
+  fileagent
+  codeagent,fileagent
+
+Do NOT explain.
+Do NOT generate code.
 
 Examples:
-"how many passengers survived" → dbagent
-"print fibonacci numbers"      → codeagent
-"inspect titanic.csv"          → fileagent
-"calculate sum of 1 to 100"    → codeagent"""
+
+how many passengers survived
+dbagent
+
+calculate fibonacci numbers
+codeagent
+
+inspect titanic.csv
+fileagent
+
+generate a python file named prime.py
+fileagent
+"""
     )
 
 
 def build_summarizer():
     return AssistantAgent(
-        name="Summarizer",
+        name="summarizer",
         model_client=get_model_client(),
-        system_message="""You are a summarizer.
-Given the results from agents, write a short clear answer for the user.
-Use only the information given. Keep it under 8 lines."""
+        system_message="""
+You summarize agent outputs into a final answer.
+
+Rules:
+- Use only agent outputs
+- Be concise
+- Maximum 8 lines
+"""
     )

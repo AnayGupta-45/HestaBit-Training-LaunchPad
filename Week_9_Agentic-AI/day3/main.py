@@ -1,58 +1,94 @@
 import asyncio
+
 from agents.orchestrator import build_orchestrator, build_summarizer
 from agents.code_agent import build_code_agent
 from agents.db_agent import build_db_agent
 from agents.file_agent import build_file_agent
 
-# All available agents
-AGENTS = {
-    "codeagent": build_code_agent(),
-    "dbagent":   build_db_agent(),
-    "fileagent": build_file_agent(),
-}
+
+def build_agent_registry():
+    return {
+        "codeagent": build_code_agent(),
+        "dbagent": build_db_agent(),
+        "fileagent": build_file_agent(),
+    }
+
+
+async def run_agent(name, agent, query):
+    try:
+        print(f"\nRunning {name}...")
+
+        res = await agent.run(task=query)
+        output = res.messages[-1].content
+
+        print(output)
+        return f"{name}: {output}"
+
+    except Exception as e:
+        err = f"{name} failed: {str(e)}"
+        print(err)
+        return err
 
 
 async def run(query: str):
 
-    # Step 1 — Orchestrator picks which agents to use
+    agents = build_agent_registry()
+
     print("\n--- STEP 1: ORCHESTRATOR ---")
+
     orchestrator = build_orchestrator()
     response = await orchestrator.run(task=query)
+
     decision = response.messages[-1].content.strip().lower()
-    print(f"Decision: {decision}")
+    print("Decision:", decision)
 
-    # Parse agent names (deduplicated)
-    selected = []
-    for name in AGENTS:
-        if name in decision and name not in selected:
-            selected.append(name)
+    selected_agents = []
 
-    if not selected:
-        print("Could not decide an agent. Try rephrasing.")
+    decision_clean = decision.replace(" ", "").strip()
+
+    if decision_clean in agents:
+        selected_agents = [decision_clean]
+
+    elif "," in decision_clean:
+        for name in decision_clean.split(","):
+            if name in agents:
+                selected_agents.append(name)
+
+    if not selected_agents:
+        print("No agent selected. Try rephrasing.")
         return
 
-    # Step 2 — Run each selected agent
     print("\n--- STEP 2: RUNNING AGENTS ---")
-    results = []
-    for name in selected:
-        print(f"\n[{name}]")
-        try:
-            res = await AGENTS[name].run(task=query)
-            output = res.messages[-1].content
-            print(output)
-            results.append(f"{name}: {output}")
-        except Exception as e:
-            print(f"Error: {e}")
-            results.append(f"{name}: Error — {str(e)[:150]}")
 
-    # Step 3 — Summarizer gives final answer
+    tasks = [
+        run_agent(name, agents[name], query)
+        for name in selected_agents
+    ]
+
+    results = await asyncio.gather(*tasks)
+
     print("\n--- STEP 3: SUMMARY ---")
+
     summarizer = build_summarizer()
-    summary_prompt = f"User asked: {query}\n\nResults:\n" + "\n\n".join(results)
+
+    summary_prompt = f"""
+User Query:
+{query}
+
+Agent Results:
+{chr(10).join(results)}
+
+Provide the final answer for the user.
+"""
+
     summary = await summarizer.run(task=summary_prompt)
+
+    print("\nFINAL ANSWER\n")
     print(summary.messages[-1].content)
 
 
 if __name__ == "__main__":
+
     query = input("\nEnter your query: ")
+
     asyncio.run(run(query))

@@ -1,9 +1,4 @@
 import asyncio
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(__file__))
-
 from agents.research_agent import build_research_agent
 from agents.summarizer_agent import build_summarizer_agent
 from agents.answer_agent import build_answer_agent
@@ -37,7 +32,9 @@ async def run_pipeline(query: str):
     final_text = final_result.messages[-1].content
     print(final_text)
 
-
 if __name__ == "__main__":
-    query = input("What would you like to research? : ")
-    asyncio.run(run_pipeline(query))
+    while True:
+        query = input("What would you like to research? (type 'exit' to quit): ")
+        if query.lower() == 'exit':
+            break
+        asyncio.run(run_pipeline(query))

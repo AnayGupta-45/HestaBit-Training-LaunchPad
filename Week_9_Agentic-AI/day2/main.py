@@ -13,7 +13,7 @@ from agents.reflection_agent import build_reflection_agent
 from agents.validator import build_validator_agent, ValidationResult
 
 
-WORKER_LIMIT = 4
+WORKER_LIMIT = 3
 
 
 def build_dag(plan: PlannerResult):

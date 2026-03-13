@@ -44,11 +44,6 @@ Extract simple facts about the USER.
 
 Return ONLY a JSON list.
 
-Example:
-["User name is Anay Gupta",
- "User works at Hestabit",
- "User is learning Agentic AI"]
-
 Conversation:
 USER: {user_msg}
 AGENT: {agent_msg}
